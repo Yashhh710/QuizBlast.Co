@@ -30,18 +30,20 @@ export default function PlayerQuestionPage() {
   const [dimmedAnswers, setDimmedAnswers]   = useState([]);
   const [disabled, setDisabled]             = useState(false);
 
-  // All mutable values in a single ref — the interval reads from here, never from closure
+  // All mutable values in a single ref — the interval reads from here, never from closure.
+  // This is the ONLY correct pattern when mixing setInterval with React state.
   const state = useRef({
-    answered:  false,
-    timeLeft:  timePerQ,
+    answered: false,
+    timeLeft: timePerQ,
     roomCode,
     myId,
     timePerQ,
     myStreak,
     gameMode,
-    q:         null,
+    q: null,
   });
-  // Sync every render — free, synchronous, no effects needed
+
+  // Sync every render — synchronous, no effects needed
   state.current.roomCode = roomCode;
   state.current.myId     = myId;
   state.current.timePerQ = timePerQ;
@@ -51,7 +53,11 @@ export default function PlayerQuestionPage() {
 
   const q = questions[currentQ];
 
-  // ── Timer ─────────────────────────────────────────────────────────────────
+  // ── Player-side timer ─────────────────────────────────────────────────────
+  // The player has their OWN visual timer for UX — it does NOT control the
+  // host or question progression. When it expires, the player just submits
+  // a null answer (time-out) so they don't miss scoring. The actual question
+  // end is driven by the HOST timer via Firebase status changes.
   const { timeLeft, start, stop, addTime } = useTimer(
     timePerQ,
     (t) => {
@@ -59,7 +65,7 @@ export default function PlayerQuestionPage() {
       if (t <= 5 && t > 0) soundTick();
     },
     async () => {
-      // onExpire — read everything from state ref, never stale
+      // Player's local timer expired — submit a timeout answer if not already answered
       const s = state.current;
       if (s.answered) return;
       s.answered = true;
@@ -87,14 +93,21 @@ export default function PlayerQuestionPage() {
     start(timePerQ);
   }, [currentQ]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Firebase listeners ────────────────────────────────────────────────────
+  // ── Firebase: react to HOST-driven status changes ─────────────────────────
+  // The player NEVER drives progression. They only react to what the host
+  // writes to Firebase. Participant answer submission does NOT affect this.
   useFirebaseListener(
     roomCode ? `rooms/${roomCode}/status` : null,
     (status) => {
       if (status === 'leaderboard') {
-        dbGet(`rooms/${roomCode}`).then(room => navigate('/leaderboard', { state: { room } }));
+        // Host has finished scoring — go to leaderboard with fresh data
+        dbGet(`rooms/${roomCode}`).then(room =>
+          navigate('/leaderboard', { state: { room } })
+        );
       } else if (status === 'finished') {
-        dbGet(`rooms/${roomCode}/players`).then(p => navigate('/final', { state: { players: p } }));
+        dbGet(`rooms/${roomCode}/players`).then(p =>
+          navigate('/final', { state: { players: p } })
+        );
       }
     }
   );
@@ -112,7 +125,8 @@ export default function PlayerQuestionPage() {
       if (!data) return;
       Object.values(data).forEach(r => {
         if (Date.now() - r.ts < 3000) {
-          spawnFloating(r.emoji,
+          spawnFloating(
+            r.emoji,
             Math.random() * window.innerWidth * .8 + window.innerWidth * .1,
             window.innerHeight * .7
           );
@@ -121,7 +135,10 @@ export default function PlayerQuestionPage() {
     }
   );
 
-  // ── Answer selection — completely isolated from timer ────────────────────
+  // ── Answer selection ──────────────────────────────────────────────────────
+  // Completely isolated from the host timer. Submitting an answer writes to
+  // Firebase (answersCount, answerDist, submittedAnswers) — the host reads
+  // those values on its own schedule. Nothing here touches the host timer.
   const handleSelectAnswer = async (idx) => {
     const s = state.current;
     if (s.answered || selectedAnswer !== null) return;
@@ -132,7 +149,7 @@ export default function PlayerQuestionPage() {
 
     const timeUsed  = s.timePerQ - s.timeLeft;
     const isCorrect = idx === s.q.correct;
-    let pts = 0;
+    let pts      = 0;
     let newStreak = s.myStreak;
 
     if (isCorrect) {
@@ -153,6 +170,7 @@ export default function PlayerQuestionPage() {
       speakText('Wrong!', false);
     }
 
+    // Read fresh room data to get current answerDist/answersCount
     const room = await dbGet(s.roomCode) || {};
     await submitAnswer(s.roomCode, s.myId, idx, timeUsed, room.answerDist, room.answersCount || 0);
 
@@ -171,7 +189,10 @@ export default function PlayerQuestionPage() {
     if (type === '50' && powerups.fifty) {
       setPowerups(prev => ({ ...prev, fifty: false }));
       const wrong  = [0,1,2,3].filter(i => i !== s.q.correct);
-      const toHide = [wrong.splice(Math.floor(Math.random() * wrong.length), 1)[0], wrong[Math.floor(Math.random() * wrong.length)]];
+      const toHide = [
+        wrong.splice(Math.floor(Math.random() * wrong.length), 1)[0],
+        wrong[Math.floor(Math.random() * wrong.length)]
+      ];
       setDimmedAnswers(toHide);
     } else if (type === 'time' && powerups.time) {
       setPowerups(prev => ({ ...prev, time: false }));
