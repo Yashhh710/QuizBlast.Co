@@ -275,6 +275,8 @@ input, select, textarea {
     flex-wrap: nowrap;
     align-items: center;
     gap: 8px;
+    position: relative;
+    z-index: 150;
   }
   .q-counter-badge { font-size: .78rem; padding: 5px 10px; white-space: nowrap; }
   .q-progress-wrap { flex: 1; min-width: 0; }
