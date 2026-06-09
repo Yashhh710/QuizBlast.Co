@@ -25,6 +25,15 @@ export default function LeaderboardPage() {
     loadPlayers();
   }, [roomCode, location.state]);
 
+  // Sync currentQ from Firebase when leaderboard mounts (host side).
+  // This prevents stale context causing handleNext to skip a question.
+  useEffect(() => {
+    if (!isHost || !roomCode) return;
+    dbGet(`rooms/${roomCode}/currentQ`).then(q => {
+      if (q != null) setCurrentQ(q);
+    });
+  }, [roomCode, isHost, setCurrentQ]);
+
   // Players listen for non-hosts to catch status changes
   useFirebaseListener(
     !isHost && roomCode ? `rooms/${roomCode}/status` : null,
@@ -42,7 +51,9 @@ export default function LeaderboardPage() {
   );
 
   const handleNext = useCallback(async () => {
-    const nextQ = currentQ + 1;
+    // Always read currentQ fresh from Firebase to avoid stale context.
+    const liveQ = await dbGet(`rooms/${roomCode}/currentQ`);
+    const nextQ = (liveQ ?? currentQ) + 1;
     if (nextQ >= questions.length) {
       const plist = await dbGet(`rooms/${roomCode}/players`);
       await advanceQuestion(roomCode, nextQ, questions.length);
