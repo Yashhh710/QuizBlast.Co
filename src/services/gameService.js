@@ -59,6 +59,14 @@ export async function submitAnswer(roomCode, myId, answerIdx, timeUsed) {
 export async function scoreAndAdvance(roomCode, players, submittedAnswers, question, timePerQ, gameMode) {
   const updatedPlayers = { ...players };
 
+  // Reset streak for anyone who timed out without submitting
+  Object.keys(updatedPlayers).forEach(pId => {
+    if (!submittedAnswers[pId]) {
+      updatedPlayers[pId].streak = 0;
+    }
+  });
+
+  // Score everyone who submitted
   Object.keys(submittedAnswers).forEach(pId => {
     if (!updatedPlayers[pId]) return;
     const ans = submittedAnswers[pId].answer;
