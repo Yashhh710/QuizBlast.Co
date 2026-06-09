@@ -1,0 +1,20 @@
+:root {
+  --purple: #46178F;
+  --purple-mid: #8B31C7;
+  --purple-light: #B44BE1;
+  --blue: #1368CE;
+  --red: #E21B3C;
+  --yellow: #FFA602;
+  --green: #26890C;
+  --blue-light: #2196f3;
+  --red-light: #ff4757;
+  --yellow-light: #ffc107;
+  --green-light: #4caf50;
+  --white: #fff;
+  --off: #f2f2f2;
+  --dark: #1a1a2e;
+  --font-d: 'Montserrat', sans-serif;
+  --font-b: 'Inter', sans-serif;
+  --shadow: 0 8px 32px rgba(0,0,0,.25);
+  --radius: 16px;
+}
