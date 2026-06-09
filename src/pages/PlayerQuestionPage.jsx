@@ -22,37 +22,53 @@ import { useCountdown } from '../hooks/useCountdown';
 export default function PlayerQuestionPage() {
   const navigate = useNavigate();
   const { roomCode, questions, timePerQ, gameMode, currentQ, setCurrentQ } = useGame();
-  const { myId, myName, myAvatar, myScore, setMyScore, myStreak, setMyStreak, myCorrect, setMyCorrect, myWrong, setMyWrong, powerups, setPowerups } = usePlayer();
-  const { counting, countNum, startCountdown } = useCountdown();
+  const { myId, myScore, setMyScore, myStreak, setMyStreak, myCorrect, setMyCorrect, myWrong, setMyWrong, powerups, setPowerups } = usePlayer();
+  const { counting, countNum } = useCountdown();
 
   const [selectedAnswer, setSelectedAnswer] = useState(null);
-  const [resultInfo, setResultInfo] = useState(null);
-  const [dimmedAnswers, setDimmedAnswers] = useState([]);
-  const [disabled, setDisabled] = useState(false);
-  const answeredRef = useRef(false);
-  const timeLeftRef = useRef(timePerQ);
+  const [resultInfo, setResultInfo]         = useState(null);
+  const [dimmedAnswers, setDimmedAnswers]   = useState([]);
+  const [disabled, setDisabled]             = useState(false);
+
+  // Refs for values needed inside timer callbacks — avoids stale closures
+  const answeredRef  = useRef(false);
+  const timeLeftRef  = useRef(timePerQ);
+  const roomCodeRef  = useRef(roomCode);
+  const myIdRef      = useRef(myId);
+  const timePerQRef  = useRef(timePerQ);
+  const qRef         = useRef(null);
+
+  // Keep refs in sync every render — costs nothing
+  roomCodeRef.current = roomCode;
+  myIdRef.current     = myId;
+  timePerQRef.current = timePerQ;
 
   const q = questions[currentQ];
+  qRef.current = q;
 
+  // ── Result overlay ────────────────────────────────────────────────────────
   const showResult = useCallback((isCorrect, idx, question, pts, streak) => {
     setResultInfo({ isCorrect, idx, question, pts, streak, isTimeout: idx === null, isSkipped: idx === -1 });
-    if (isCorrect) { soundCorrect(); speakText('Correct!', false); }
-    else if (idx === null) { soundWrong(); speakText("Time's Up!", false); }
-    else if (idx === -1) { speakText('Skipped!', false); }
-    else { soundWrong(); speakText('Wrong!', false); }
+    if (isCorrect)        { soundCorrect(); speakText('Correct!', false); }
+    else if (idx === null){ soundWrong();  speakText("Time's Up!", false); }
+    else if (idx === -1)  { speakText('Skipped!', false); }
+    else                  { soundWrong();  speakText('Wrong!', false); }
   }, []);
 
+  // ── Timer expire — reads everything from refs, never stale ───────────────
   const handleExpire = useCallback(async () => {
     if (answeredRef.current) return;
     answeredRef.current = true;
     setDisabled(true);
     setMyStreak(0);
     setMyWrong(prev => prev + 1);
-    await submitAnswer(roomCode, myId, null, timePerQ, null, 0);
-    showResult(false, null, q, 0, 0);
-  }, [roomCode, myId, timePerQ, q, setMyStreak, setMyWrong, showResult]);
+    await submitAnswer(roomCodeRef.current, myIdRef.current, null, timePerQRef.current, null, 0);
+    showResult(false, null, qRef.current, 0, 0);
+  }, [setMyStreak, setMyWrong, showResult]); // no q / roomCode / myId — all via refs
 
-  const { timeLeft, start, stop, addTime } = useTimer(timePerQ,
+  // ── Timer ─────────────────────────────────────────────────────────────────
+  const { timeLeft, start, stop, addTime } = useTimer(
+    timePerQ,
     useCallback((t) => {
       timeLeftRef.current = t;
       if (t <= 5 && t > 0) soundTick();
@@ -60,25 +76,25 @@ export default function PlayerQuestionPage() {
     handleExpire
   );
 
+  // ── Reset on new question ─────────────────────────────────────────────────
   useEffect(() => {
     if (!q) return;
     answeredRef.current = false;
+    timeLeftRef.current = timePerQ;
     setSelectedAnswer(null);
     setResultInfo(null);
     setDimmedAnswers([]);
     setDisabled(false);
-    timeLeftRef.current = timePerQ;
     speakText(q.question, false);
     start(timePerQ);
-  }, [currentQ]); // eslint-disable-line
+  }, [currentQ]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Firebase listeners ────────────────────────────────────────────────────
   useFirebaseListener(
     roomCode ? `rooms/${roomCode}/status` : null,
     useCallback((status) => {
       if (status === 'leaderboard') {
-        dbGet(`rooms/${roomCode}`).then(room => {
-          navigate('/leaderboard', { state: { room } });
-        });
+        dbGet(`rooms/${roomCode}`).then(room => navigate('/leaderboard', { state: { room } }));
       } else if (status === 'finished') {
         dbGet(`rooms/${roomCode}/players`).then(p => navigate('/final', { state: { players: p } }));
       }
@@ -88,9 +104,7 @@ export default function PlayerQuestionPage() {
   useFirebaseListener(
     roomCode ? `rooms/${roomCode}/currentQ` : null,
     useCallback((idx) => {
-      if (idx != null && idx !== currentQ) {
-        setCurrentQ(idx);
-      }
+      if (idx != null && idx !== currentQ) setCurrentQ(idx);
     }, [currentQ, setCurrentQ])
   );
 
@@ -106,21 +120,22 @@ export default function PlayerQuestionPage() {
     }, [])
   );
 
+  // ── Answer selection — does NOT touch the timer ───────────────────────────
   const handleSelectAnswer = useCallback(async (idx) => {
     if (answeredRef.current || selectedAnswer !== null) return;
     answeredRef.current = true;
     setSelectedAnswer(idx);
     setDisabled(true);
 
-    const timeUsed = timePerQ - timeLeftRef.current;
-    const isCorrect = idx === q.correct;
-    let pts = 0;
-    let newStreak = myStreak;
+    const timeUsed  = timePerQRef.current - timeLeftRef.current;
+    const currentQRef_q = qRef.current;
+    const isCorrect = idx === currentQRef_q.correct;
+    let pts = 0, newStreak = myStreak;
 
     if (isCorrect) {
-      const speedBonus = Math.round(((timePerQ - timeUsed) / timePerQ) * 500);
+      const speedBonus  = Math.round(((timePerQRef.current - timeUsed) / timePerQRef.current) * 500);
       const streakBonus = gameMode === 'streak' ? myStreak * 100 : 0;
-      pts = 1000 + speedBonus + streakBonus;
+      pts       = 1000 + speedBonus + streakBonus;
       newStreak = myStreak + 1;
       setMyStreak(newStreak);
       setMyCorrect(prev => prev + 1);
@@ -131,15 +146,17 @@ export default function PlayerQuestionPage() {
       setMyWrong(prev => prev + 1);
     }
 
-    const room = await dbGet(`rooms/${roomCode}`) || {};
-    await submitAnswer(roomCode, myId, idx, timeUsed, room.answerDist, room.answersCount || 0);
-    showResult(isCorrect, idx, q, pts, newStreak);
-  }, [answeredRef, selectedAnswer, timePerQ, q, myStreak, gameMode, roomCode, myId, setMyStreak, setMyCorrect, setMyScore, setMyWrong, showResult]);
+    const room = await dbGet(`rooms/${roomCodeRef.current}`) || {};
+    await submitAnswer(roomCodeRef.current, myIdRef.current, idx, timeUsed, room.answerDist, room.answersCount || 0);
+    showResult(isCorrect, idx, currentQRef_q, pts, newStreak);
+  }, [selectedAnswer, myStreak, gameMode, setMyStreak, setMyCorrect, setMyScore, setMyWrong, showResult]);
+  // note: no roomCode/myId/q/timePerQ — all read from refs above
 
+  // ── Power-ups ─────────────────────────────────────────────────────────────
   const handlePowerup = useCallback((type) => {
     if (type === '50' && powerups.fifty) {
       setPowerups(prev => ({ ...prev, fifty: false }));
-      const wrong = [0, 1, 2, 3].filter(i => i !== q.correct);
+      const wrong  = [0,1,2,3].filter(i => i !== qRef.current.correct);
       const toHide = [wrong.splice(Math.floor(Math.random() * wrong.length), 1)[0], wrong[Math.floor(Math.random() * wrong.length)]];
       setDimmedAnswers(toHide);
     } else if (type === 'time' && powerups.time) {
@@ -151,13 +168,13 @@ export default function PlayerQuestionPage() {
       answeredRef.current = true;
       setSelectedAnswer(-1);
       setDisabled(true);
-      showResult(false, -1, q, 0, 0);
+      showResult(false, -1, qRef.current, 0, 0);
     }
-  }, [powerups, q, addTime, stop, showResult, setPowerups]);
+  }, [powerups, addTime, stop, showResult, setPowerups]);
 
   if (!q || !roomCode) { navigate('/'); return null; }
 
-  const progressWidth = ((currentQ) / questions.length) * 100;
+  const progressWidth = (currentQ / questions.length) * 100;
 
   return (
     <div className="screen" style={{ background: 'none', minHeight: '100vh' }}>
