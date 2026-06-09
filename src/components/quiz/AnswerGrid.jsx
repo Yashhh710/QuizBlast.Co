@@ -13,7 +13,7 @@ const AnswerGrid = memo(function AnswerGrid({ answers, selectedAnswer, onSelect,
               key={i}
               index={i}
               text={text}
-              onClick={() => onSelect(i)}
+              onClick={(e) => onSelect && onSelect(i, e)}
               disabled={disabled || selectedAnswer !== null || isPowerupDimmed}
               dimmed={isPowerupDimmed || isSelectedDimmed}
               selected={selectedAnswer === i}
