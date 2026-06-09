@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
 import { usePlayer } from '../context/PlayerContext';
@@ -22,7 +22,7 @@ import { useCountdown } from '../hooks/useCountdown';
 export default function PlayerQuestionPage() {
   const navigate = useNavigate();
   const { roomCode, questions, timePerQ, gameMode, currentQ, setCurrentQ } = useGame();
-  const { myId, myScore, setMyScore, myStreak, setMyStreak, myCorrect, setMyCorrect, myWrong, setMyWrong, powerups, setPowerups } = usePlayer();
+  const { myId, setMyScore, myStreak, setMyStreak, setMyCorrect, setMyWrong, powerups, setPowerups } = usePlayer();
   const { counting, countNum } = useCountdown();
 
   const [selectedAnswer, setSelectedAnswer] = useState(null);
@@ -30,57 +30,55 @@ export default function PlayerQuestionPage() {
   const [dimmedAnswers, setDimmedAnswers]   = useState([]);
   const [disabled, setDisabled]             = useState(false);
 
-  // Refs for values needed inside timer callbacks — avoids stale closures
-  const answeredRef  = useRef(false);
-  const timeLeftRef  = useRef(timePerQ);
-  const roomCodeRef  = useRef(roomCode);
-  const myIdRef      = useRef(myId);
-  const timePerQRef  = useRef(timePerQ);
-  const qRef         = useRef(null);
-
-  // Keep refs in sync every render — costs nothing
-  roomCodeRef.current = roomCode;
-  myIdRef.current     = myId;
-  timePerQRef.current = timePerQ;
+  // All mutable values in a single ref — the interval reads from here, never from closure
+  const state = useRef({
+    answered:  false,
+    timeLeft:  timePerQ,
+    roomCode,
+    myId,
+    timePerQ,
+    myStreak,
+    gameMode,
+    q:         null,
+  });
+  // Sync every render — free, synchronous, no effects needed
+  state.current.roomCode = roomCode;
+  state.current.myId     = myId;
+  state.current.timePerQ = timePerQ;
+  state.current.myStreak = myStreak;
+  state.current.gameMode = gameMode;
+  state.current.q        = questions[currentQ];
 
   const q = questions[currentQ];
-  qRef.current = q;
-
-  // ── Result overlay ────────────────────────────────────────────────────────
-  const showResult = useCallback((isCorrect, idx, question, pts, streak) => {
-    setResultInfo({ isCorrect, idx, question, pts, streak, isTimeout: idx === null, isSkipped: idx === -1 });
-    if (isCorrect)        { soundCorrect(); speakText('Correct!', false); }
-    else if (idx === null){ soundWrong();  speakText("Time's Up!", false); }
-    else if (idx === -1)  { speakText('Skipped!', false); }
-    else                  { soundWrong();  speakText('Wrong!', false); }
-  }, []);
-
-  // ── Timer expire — reads everything from refs, never stale ───────────────
-  const handleExpire = useCallback(async () => {
-    if (answeredRef.current) return;
-    answeredRef.current = true;
-    setDisabled(true);
-    setMyStreak(0);
-    setMyWrong(prev => prev + 1);
-    await submitAnswer(roomCodeRef.current, myIdRef.current, null, timePerQRef.current, null, 0);
-    showResult(false, null, qRef.current, 0, 0);
-  }, [setMyStreak, setMyWrong, showResult]); // no q / roomCode / myId — all via refs
 
   // ── Timer ─────────────────────────────────────────────────────────────────
   const { timeLeft, start, stop, addTime } = useTimer(
     timePerQ,
-    useCallback((t) => {
-      timeLeftRef.current = t;
+    (t) => {
+      state.current.timeLeft = t;
       if (t <= 5 && t > 0) soundTick();
-    }, []),
-    handleExpire
+    },
+    async () => {
+      // onExpire — read everything from state ref, never stale
+      const s = state.current;
+      if (s.answered) return;
+      s.answered = true;
+      setDisabled(true);
+      setMyStreak(0);
+      setMyWrong(prev => prev + 1);
+      await submitAnswer(s.roomCode, s.myId, null, s.timePerQ, null, 0);
+      const qi = s.q;
+      setResultInfo({ isCorrect: false, idx: null, question: qi, pts: 0, streak: 0, isTimeout: true, isSkipped: false });
+      soundWrong();
+      speakText("Time's Up!", false);
+    }
   );
 
   // ── Reset on new question ─────────────────────────────────────────────────
   useEffect(() => {
     if (!q) return;
-    answeredRef.current = false;
-    timeLeftRef.current = timePerQ;
+    state.current.answered = false;
+    state.current.timeLeft = timePerQ;
     setSelectedAnswer(null);
     setResultInfo(null);
     setDimmedAnswers([]);
@@ -92,71 +90,87 @@ export default function PlayerQuestionPage() {
   // ── Firebase listeners ────────────────────────────────────────────────────
   useFirebaseListener(
     roomCode ? `rooms/${roomCode}/status` : null,
-    useCallback((status) => {
+    (status) => {
       if (status === 'leaderboard') {
         dbGet(`rooms/${roomCode}`).then(room => navigate('/leaderboard', { state: { room } }));
       } else if (status === 'finished') {
         dbGet(`rooms/${roomCode}/players`).then(p => navigate('/final', { state: { players: p } }));
       }
-    }, [roomCode, navigate])
+    }
   );
 
   useFirebaseListener(
     roomCode ? `rooms/${roomCode}/currentQ` : null,
-    useCallback((idx) => {
+    (idx) => {
       if (idx != null && idx !== currentQ) setCurrentQ(idx);
-    }, [currentQ, setCurrentQ])
+    }
   );
 
   useFirebaseListener(
     roomCode ? `rooms/${roomCode}/reactions` : null,
-    useCallback((data) => {
+    (data) => {
       if (!data) return;
       Object.values(data).forEach(r => {
         if (Date.now() - r.ts < 3000) {
-          spawnFloating(r.emoji, Math.random() * window.innerWidth * .8 + window.innerWidth * .1, window.innerHeight * .7);
+          spawnFloating(r.emoji,
+            Math.random() * window.innerWidth * .8 + window.innerWidth * .1,
+            window.innerHeight * .7
+          );
         }
       });
-    }, [])
+    }
   );
 
-  // ── Answer selection — does NOT touch the timer ───────────────────────────
-  const handleSelectAnswer = useCallback(async (idx) => {
-    if (answeredRef.current || selectedAnswer !== null) return;
-    answeredRef.current = true;
+  // ── Answer selection — completely isolated from timer ────────────────────
+  const handleSelectAnswer = async (idx) => {
+    const s = state.current;
+    if (s.answered || selectedAnswer !== null) return;
+    s.answered = true;
+
     setSelectedAnswer(idx);
     setDisabled(true);
 
-    const timeUsed  = timePerQRef.current - timeLeftRef.current;
-    const currentQRef_q = qRef.current;
-    const isCorrect = idx === currentQRef_q.correct;
-    let pts = 0, newStreak = myStreak;
+    const timeUsed  = s.timePerQ - s.timeLeft;
+    const isCorrect = idx === s.q.correct;
+    let pts = 0;
+    let newStreak = s.myStreak;
 
     if (isCorrect) {
-      const speedBonus  = Math.round(((timePerQRef.current - timeUsed) / timePerQRef.current) * 500);
-      const streakBonus = gameMode === 'streak' ? myStreak * 100 : 0;
+      const speedBonus  = Math.round(((s.timePerQ - timeUsed) / s.timePerQ) * 500);
+      const streakBonus = s.gameMode === 'streak' ? s.myStreak * 100 : 0;
       pts       = 1000 + speedBonus + streakBonus;
-      newStreak = myStreak + 1;
+      newStreak = s.myStreak + 1;
       setMyStreak(newStreak);
       setMyCorrect(prev => prev + 1);
       setMyScore(prev => prev + pts);
+      soundCorrect();
+      speakText('Correct!', false);
     } else {
       newStreak = 0;
       setMyStreak(0);
       setMyWrong(prev => prev + 1);
+      soundWrong();
+      speakText('Wrong!', false);
     }
 
-    const room = await dbGet(`rooms/${roomCodeRef.current}`) || {};
-    await submitAnswer(roomCodeRef.current, myIdRef.current, idx, timeUsed, room.answerDist, room.answersCount || 0);
-    showResult(isCorrect, idx, currentQRef_q, pts, newStreak);
-  }, [selectedAnswer, myStreak, gameMode, setMyStreak, setMyCorrect, setMyScore, setMyWrong, showResult]);
-  // note: no roomCode/myId/q/timePerQ — all read from refs above
+    const room = await dbGet(s.roomCode) || {};
+    await submitAnswer(s.roomCode, s.myId, idx, timeUsed, room.answerDist, room.answersCount || 0);
+
+    setResultInfo({
+      isCorrect, idx,
+      question:  s.q,
+      pts, streak: newStreak,
+      isTimeout: false,
+      isSkipped: false,
+    });
+  };
 
   // ── Power-ups ─────────────────────────────────────────────────────────────
-  const handlePowerup = useCallback((type) => {
+  const handlePowerup = (type) => {
+    const s = state.current;
     if (type === '50' && powerups.fifty) {
       setPowerups(prev => ({ ...prev, fifty: false }));
-      const wrong  = [0,1,2,3].filter(i => i !== qRef.current.correct);
+      const wrong  = [0,1,2,3].filter(i => i !== s.q.correct);
       const toHide = [wrong.splice(Math.floor(Math.random() * wrong.length), 1)[0], wrong[Math.floor(Math.random() * wrong.length)]];
       setDimmedAnswers(toHide);
     } else if (type === 'time' && powerups.time) {
@@ -165,12 +179,13 @@ export default function PlayerQuestionPage() {
     } else if (type === 'skip' && powerups.skip) {
       setPowerups(prev => ({ ...prev, skip: false }));
       stop();
-      answeredRef.current = true;
+      s.answered = true;
       setSelectedAnswer(-1);
       setDisabled(true);
-      showResult(false, -1, qRef.current, 0, 0);
+      setResultInfo({ isCorrect: false, idx: -1, question: s.q, pts: 0, streak: 0, isTimeout: false, isSkipped: true });
+      speakText('Skipped!', false);
     }
-  }, [powerups, addTime, stop, showResult, setPowerups]);
+  };
 
   if (!q || !roomCode) { navigate('/'); return null; }
 
