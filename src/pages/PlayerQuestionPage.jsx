@@ -48,9 +48,7 @@ export default function PlayerQuestionPage() {
     setDisabled(true);
     setMyStreak(0);
     setMyWrong(prev => prev + 1);
-    const room = await dbGet(`rooms/${roomCode}`) || {};
-    const count = (room.answersCount || 0) + 1;
-    await submitAnswer(roomCode, myId, null, timePerQ, room.answerDist, room.answersCount || 0);
+    await submitAnswer(roomCode, myId, null, timePerQ, null, 0);
     showResult(false, null, q, 0, 0);
   }, [roomCode, myId, timePerQ, q, setMyStreak, setMyWrong, showResult]);
 
@@ -74,6 +72,9 @@ export default function PlayerQuestionPage() {
     start(timePerQ);
   }, [currentQ]); // eslint-disable-line
 
+  // Only listen to status — navigating on status change is enough.
+  // Previously there was ALSO a currentQ listener that called navigate('/player-question')
+  // again, causing a double-mount that reset the question index and skipped Q2.
   useFirebaseListener(
     roomCode ? `rooms/${roomCode}/status` : null,
     useCallback((status) => {
@@ -87,17 +88,16 @@ export default function PlayerQuestionPage() {
     }, [roomCode, navigate])
   );
 
+  // Sync currentQ from Firebase WITHOUT navigating.
+  // This keeps the local context up to date when the host advances,
+  // but does NOT trigger a second navigation (LeaderboardPage already did that).
   useFirebaseListener(
     roomCode ? `rooms/${roomCode}/currentQ` : null,
     useCallback((idx) => {
-      // Sync the question index from Firebase whenever it changes.
-      // We do NOT navigate here — LeaderboardPage already navigated us to
-      // this page. Navigating again here was causing a double-advance that
-      // skipped every second question.
       if (idx != null && idx !== currentQ) {
         setCurrentQ(idx);
       }
-    }, [roomCode, currentQ, setCurrentQ])
+    }, [currentQ, setCurrentQ])
   );
 
   useFirebaseListener(
