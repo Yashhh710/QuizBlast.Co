@@ -90,14 +90,14 @@ export default function PlayerQuestionPage() {
   useFirebaseListener(
     roomCode ? `rooms/${roomCode}/currentQ` : null,
     useCallback((idx) => {
-      if (idx == null) return;
-      dbGet(`rooms/${roomCode}/status`).then(s => {
-        if (s === 'playing' && idx !== currentQ) {
-          setCurrentQ(idx);
-          navigate('/player-question');
-        }
-      });
-    }, [roomCode, currentQ, navigate, setCurrentQ])
+      // Sync the question index from Firebase whenever it changes.
+      // We do NOT navigate here — LeaderboardPage already navigated us to
+      // this page. Navigating again here was causing a double-advance that
+      // skipped every second question.
+      if (idx != null && idx !== currentQ) {
+        setCurrentQ(idx);
+      }
+    }, [roomCode, currentQ, setCurrentQ])
   );
 
   useFirebaseListener(
