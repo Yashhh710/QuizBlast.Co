@@ -1,75 +1,70 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 export function useTimer(initialTime, onTick, onExpire) {
-  // timeLeft is the only piece of state — drives the UI
   const [timeLeft, setTimeLeft] = useState(initialTime);
 
-  // Everything else lives in refs — completely outside React's render cycle
-  const intervalRef   = useRef(null);
-  const timeLeftRef   = useRef(initialTime);  // source of truth for the interval
-  const isRunningRef  = useRef(false);
-  const onTickRef     = useRef(onTick);
-  const onExpireRef   = useRef(onExpire);
+  // Everything in refs - completely immune to React renders
+  const ref = useRef({
+    interval: null,
+    running: false,
+    current: initialTime,
+    onTick: onTick,
+    onExpire: onExpire,
+  });
 
-  // Keep callbacks current without ever restarting the interval
-  onTickRef.current   = onTick;
-  onExpireRef.current = onExpire;
+  // Sync callbacks every render WITHOUT touching the interval
+  ref.current.onTick = onTick;
+  ref.current.onExpire = onExpire;
 
-  const stop = useCallback(() => {
-    isRunningRef.current = false;
-    clearInterval(intervalRef.current);
-    intervalRef.current = null;
-  }, []);
+  const start = (time) => {
+    const r = ref.current;
+    clearInterval(r.interval);
+    r.interval = null;
 
-  const start = useCallback((time) => {
-    // Kill any existing interval cleanly
-    clearInterval(intervalRef.current);
-    intervalRef.current = null;
+    const from = (time !== undefined ? time : initialTime);
+    r.current = from;
+    r.running = true;
+    setTimeLeft(from);
 
-    const startAt = (time !== undefined ? time : initialTime);
-    timeLeftRef.current = startAt;
-    isRunningRef.current = true;
-    setTimeLeft(startAt);
-
-    intervalRef.current = setInterval(() => {
-      // Guard: if stop() was called between ticks, bail out
-      if (!isRunningRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
+    r.interval = setInterval(() => {
+      if (!r.running) {
+        clearInterval(r.interval);
+        r.interval = null;
         return;
       }
 
-      timeLeftRef.current -= 1;
-      const next = timeLeftRef.current;
-
-      // Update UI
+      r.current -= 1;
+      const next = r.current;
       setTimeLeft(next);
 
-      // Tick callback (e.g. sound) — read from ref, never stale
-      if (onTickRef.current) onTickRef.current(next);
+      if (r.onTick) r.onTick(next);
 
       if (next <= 0) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-        isRunningRef.current = false;
-        // Fire expire outside the interval callback to avoid any batching issues
-        setTimeout(() => {
-          if (onExpireRef.current) onExpireRef.current();
-        }, 0);
+        clearInterval(r.interval);
+        r.interval = null;
+        r.running = false;
+        if (r.onExpire) r.onExpire();
       }
     }, 1000);
-  }, [initialTime]); // initialTime is static (timePerQ never changes mid-game)
+  };
 
-  const addTime = useCallback((extra) => {
-    timeLeftRef.current += extra;
+  const stop = () => {
+    const r = ref.current;
+    r.running = false;
+    clearInterval(r.interval);
+    r.interval = null;
+  };
+
+  const addTime = (extra) => {
+    ref.current.current += extra;
     setTimeLeft(prev => prev + extra);
-  }, []);
+  };
 
-  // Cleanup on unmount only
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      clearInterval(intervalRef.current);
-      isRunningRef.current = false;
+      clearInterval(ref.current.interval);
+      ref.current.running = false;
     };
   }, []);
 
