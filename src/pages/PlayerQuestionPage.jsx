@@ -109,7 +109,6 @@ export default function PlayerQuestionPage() {
   const handleSelectAnswer = useCallback(async (idx) => {
     if (answeredRef.current || selectedAnswer !== null) return;
     answeredRef.current = true;
-    stop();
     setSelectedAnswer(idx);
     setDisabled(true);
 
@@ -135,7 +134,7 @@ export default function PlayerQuestionPage() {
     const room = await dbGet(`rooms/${roomCode}`) || {};
     await submitAnswer(roomCode, myId, idx, timeUsed, room.answerDist, room.answersCount || 0);
     showResult(isCorrect, idx, q, pts, newStreak);
-  }, [answeredRef, selectedAnswer, stop, timePerQ, q, myStreak, gameMode, roomCode, myId, setMyStreak, setMyCorrect, setMyScore, setMyWrong, showResult]);
+  }, [answeredRef, selectedAnswer, timePerQ, q, myStreak, gameMode, roomCode, myId, setMyStreak, setMyCorrect, setMyScore, setMyWrong, showResult]);
 
   const handlePowerup = useCallback((type) => {
     if (type === '50' && powerups.fifty) {
@@ -183,7 +182,7 @@ export default function PlayerQuestionPage() {
             {myStreak >= 2 && (
               <span className="title" style={{ fontSize: '.82rem', color: '#FFC836' }}>🔥 {myStreak}x</span>
             )}
-            {!disabled && <Timer timeLeft={timeLeft} timePerQ={timePerQ} />}
+            <Timer timeLeft={timeLeft} timePerQ={timePerQ} />
           </div>
         </div>
 
