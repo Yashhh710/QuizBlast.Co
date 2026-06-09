@@ -1,9 +1,11 @@
-const AudioCtx = window.AudioContext || window.webkitAudioContext;
 let audioCtx = null;
 
 function getAudio() {
   if (!audioCtx) {
-    try { audioCtx = new AudioCtx(); } catch (e) {}
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) audioCtx = new AudioCtx();
+    } catch (e) {}
   }
   return audioCtx;
 }
