@@ -1,9 +1,13 @@
 import React, { useState } from 'react';
 import HostTab from '../components/home/HostTab';
 import JoinTab from '../components/home/JoinTab';
+import { useSearchParams } from 'react-router-dom';
 
 export default function HomePage() {
-  const [activeTab, setActiveTab] = useState('host');
+  const [searchParams] = useSearchParams();
+const [activeTab, setActiveTab] = useState(
+  searchParams.get('room') ? 'join' : 'host'
+);
 
   return (
     <div className="screen screen-home" style={{ minHeight: '100vh' }}>
