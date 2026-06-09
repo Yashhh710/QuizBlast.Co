@@ -98,7 +98,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--purple)
 
 /* ─── QUESTION SCREENS ──────────────────────────────────────────────────────── */
 .q-layout { width: 100%; min-height: 100vh; display: flex; flex-direction: column; background: linear-gradient(180deg,#46178F 0%,#2d0f5a 100%); }
-.q-topbar { background: var(--purple); padding: 10px 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.q-topbar { background: var(--purple); padding: 10px 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px; position: relative; z-index: 150; }
 .q-counter-badge { background: rgba(255,255,255,.15); border-radius: 50px; padding: 6px 16px; font-family: var(--font-d); font-size: .88rem; font-weight: 800; color: #fff; }
 .q-progress-wrap { flex: 1; height: 8px; background: rgba(255,255,255,.15); border-radius: 8px; overflow: hidden; }
 .q-progress-fill { height: 100%; background: linear-gradient(90deg,#FFC836,#FF8C00); border-radius: 8px; transition: width 1s linear; }
@@ -161,7 +161,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--purple)
 .score-pts { font-family: var(--font-d); font-weight: 900; color: #FFC836; font-size: 1rem; }
 
 /* ─── ANSWER RESULT OVERLAY ─────────────────────────────────────────────────── */
-.ans-result-overlay { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; animation: zoomIn .3s ease; padding: 24px; }
+.ans-result-overlay { position: fixed; left: 0; right: 0; bottom: 0; top: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; animation: zoomIn .3s ease; padding: 24px; }
 .ans-result-correct { background: linear-gradient(160deg,#1a7a3f,#16A34A); }
 .ans-result-wrong { background: linear-gradient(160deg,#8B0000,#DC2626); }
 .ans-result-timeout { background: linear-gradient(160deg,#6B21A8,#7C3AED); }
