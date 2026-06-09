@@ -25,7 +25,7 @@ export default function LobbyPage() {
   const [kickTarget, setKickTarget] = useState(null);
   const lastCountRef = useRef(0);
 
-  const joinURL = window.location.origin + window.location.pathname + '?room=' + roomCode;
+  const joinURL = window.location.origin + '/?room=' + roomCode;
 
   useFirebaseListener(
     roomCode ? `rooms/${roomCode}/players` : null,
