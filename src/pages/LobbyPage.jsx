@@ -5,7 +5,7 @@ import { useFirebaseListener } from '../hooks/useFirebase';
 import { useCountdown } from '../hooks/useCountdown';
 import { kickPlayer, renamePlayer } from '../services/playerService';
 import { dbDelete, dbGet } from '../services/firebase';
-import { startGame } from '../services/gameService';
+import { startGame, advanceQuestion } from '../services/gameService';
 import { soundPop } from '../utils/sounds';
 import { spawnFloating } from '../utils/animations';
 import RoomCode from '../components/lobby/RoomCode';
@@ -51,11 +51,12 @@ export default function LobbyPage() {
 
   const handleStart = useCallback(async () => {
     await startGame(roomCode);
-    startCountdown(() => {
+    startCountdown(async () => {
+      await advanceQuestion(roomCode, 0, questions.length);
       setCurrentQ(0);
       navigate('/host-question');
     }, true);
-  }, [roomCode, navigate, startCountdown, setCurrentQ]);
+  }, [roomCode, navigate, startCountdown, setCurrentQ, questions.length]);
 
   const handleKickAll = useCallback(async () => {
     const ps = await dbGet(`rooms/${roomCode}/players`);

@@ -239,7 +239,26 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--purple)
   .ans-btn { min-height: 64px; padding: 16px 16px 16px 64px; }
   .room-code { font-size: 3.5rem; letter-spacing: 10px; }
   .question-text { font-size: 1.1rem; }
-  .burst-num { font-size: 7rem; }
+  .host-controls { flex-direction: column; }
+  .host-controls .btn { width: 100%; }
+  .q-topbar { flex-wrap: wrap; align-items: flex-start; gap: 12px; }
+  .q-topbar > div, .q-topbar > span { flex: 1 1 100%; }
+  .q-topbar .answers-answered { width: 100%; justify-content: center; }
+  .powerup-bar { flex-wrap: wrap; gap: 8px; }
+  .reactions-bar { padding: 12px 10px 16px; }
+  .question-area { padding: 16px 14px 10px; }
+  .question-card { padding: 22px 20px; }
+  .ans-btn { padding: 16px 16px 16px 56px; }
+  .q-layout { min-height: auto; }
+  .screen-player-wait div[style] { padding: 48px 18px 32px; }
+  .player-chip { flex: 1 1 45%; justify-content: center; }
+  .host-controls { padding: 12px 10px 16px; }
+  .host-controls .btn { padding: 12px; }
+  .powerup-btn { min-width: 0; flex: 1; }
+  .title { word-break: break-word; }
+  .badge { font-size: .75rem; }
+  .ans-bar-row { flex-wrap: wrap; }
+  .ans-bar-label { width: auto; }
 }
 @media(min-width:900px) {
   .ans-btn { font-size: 1.15rem; min-height: 96px; }
