@@ -29,18 +29,24 @@ export default function PlayerQuestionPage() {
   const [resultInfo, setResultInfo] = useState(null);
   const [dimmedAnswers, setDimmedAnswers] = useState([]);
   const [disabled, setDisabled] = useState(false);
+  // Auto-skip: when ON, result overlay is skipped and next Q loads immediately after answering
+  const [autoSkip, setAutoSkip] = useState(false);
   const answeredRef = useRef(false);
   const timeLeftRef = useRef(timePerQ);
 
   const q = questions[currentQ];
 
   const showResult = useCallback((isCorrect, idx, question, pts, streak) => {
+    if (autoSkip && idx !== null) {
+      // Don't show overlay — host will advance automatically
+      return;
+    }
     setResultInfo({ isCorrect, idx, question, pts, streak, isTimeout: idx === null, isSkipped: idx === -1 });
     if (isCorrect) { soundCorrect(); speakText('Correct!', false); }
     else if (idx === null) { soundWrong(); speakText("Time's Up!", false); }
     else if (idx === -1) { speakText('Skipped!', false); }
     else { soundWrong(); speakText('Wrong!', false); }
-  }, []);
+  }, [autoSkip]);
 
   const handleExpire = useCallback(async () => {
     if (answeredRef.current) return;
@@ -72,9 +78,6 @@ export default function PlayerQuestionPage() {
     start(timePerQ);
   }, [currentQ]); // eslint-disable-line
 
-  // Only listen to status — navigating on status change is enough.
-  // Previously there was ALSO a currentQ listener that called navigate('/player-question')
-  // again, causing a double-mount that reset the question index and skipped Q2.
   useFirebaseListener(
     roomCode ? `rooms/${roomCode}/status` : null,
     useCallback((status) => {
@@ -88,9 +91,6 @@ export default function PlayerQuestionPage() {
     }, [roomCode, navigate])
   );
 
-  // Sync currentQ from Firebase WITHOUT navigating.
-  // This keeps the local context up to date when the host advances,
-  // but does NOT trigger a second navigation (LeaderboardPage already did that).
   useFirebaseListener(
     roomCode ? `rooms/${roomCode}/currentQ` : null,
     useCallback((idx) => {
@@ -194,6 +194,54 @@ export default function PlayerQuestionPage() {
         </div>
 
         <QuestionCard question={q.question} isHost={false} />
+
+        {/* Auto-Skip Toggle */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '10px',
+          margin: '6px 0',
+          padding: '8px 16px',
+          background: 'rgba(255,255,255,0.07)',
+          borderRadius: '30px',
+          width: 'fit-content',
+          alignSelf: 'center',
+          marginLeft: 'auto',
+          marginRight: 'auto',
+        }}>
+          <span style={{ color: 'rgba(255,255,255,0.75)', fontSize: '.82rem', fontWeight: 600 }}>
+            ⚡ Auto-skip after answer
+          </span>
+          <button
+            onClick={() => setAutoSkip(v => !v)}
+            style={{
+              position: 'relative',
+              width: '42px',
+              height: '22px',
+              borderRadius: '11px',
+              border: 'none',
+              cursor: 'pointer',
+              background: autoSkip ? '#FFC836' : 'rgba(255,255,255,0.2)',
+              transition: 'background 0.25s',
+              padding: 0,
+              flexShrink: 0,
+            }}
+            aria-label="Toggle auto-skip"
+          >
+            <span style={{
+              position: 'absolute',
+              top: '3px',
+              left: autoSkip ? '23px' : '3px',
+              width: '16px',
+              height: '16px',
+              borderRadius: '50%',
+              background: '#fff',
+              transition: 'left 0.25s',
+              boxShadow: '0 1px 4px rgba(0,0,0,0.25)',
+            }} />
+          </button>
+        </div>
 
         <PowerUpBar powerups={powerups} onUse={handlePowerup} gameMode={gameMode} />
 
