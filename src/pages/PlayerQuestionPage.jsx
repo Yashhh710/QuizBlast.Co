@@ -183,7 +183,7 @@ export default function PlayerQuestionPage() {
             {myStreak >= 2 && (
               <span className="title" style={{ fontSize: '.82rem', color: '#FFC836' }}>🔥 {myStreak}x</span>
             )}
-            <Timer timeLeft={timeLeft} timePerQ={timePerQ} />
+            {!disabled && <Timer timeLeft={timeLeft} timePerQ={timePerQ} />}
           </div>
         </div>
 
