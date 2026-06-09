@@ -1,48 +1,62 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 export function useTimer(initialTime, onTick, onExpire) {
   const [timeLeft, setTimeLeft] = useState(initialTime);
-  const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const intervalRef = useRef(null);
+  const isRunningRef = useRef(false);   // track state without triggering re-renders
   const onTickRef = useRef(onTick);
   const onExpireRef = useRef(onExpire);
 
+  // Always keep callbacks fresh without causing re-renders
   useEffect(() => { onTickRef.current = onTick; }, [onTick]);
   useEffect(() => { onExpireRef.current = onExpire; }, [onExpire]);
 
-  // The single interval — only runs while isTimerRunning is true
-  useEffect(() => {
-    if (!isTimerRunning) return;
+  const stop = useCallback(() => {
+    isRunningRef.current = false;
+    clearInterval(intervalRef.current);
+    intervalRef.current = null;
+  }, []);
 
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (onTickRef.current) onTickRef.current(prev - 1);
-        if (prev <= 1) {
-          clearInterval(timer);
-          setIsTimerRunning(false);
-          // Fire onExpire outside the state updater to avoid stale closures
-          setTimeout(() => { if (onExpireRef.current) onExpireRef.current(); }, 0);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+  const start = useCallback((time) => {
+    // Clear any existing interval first
+    clearInterval(intervalRef.current);
+    intervalRef.current = null;
 
-    return () => clearInterval(timer);
-  }, [isTimerRunning]);
-
-  const start = (time) => {
     const startTime = time !== undefined ? time : initialTime;
     setTimeLeft(startTime);
-    setIsTimerRunning(true);
-  };
+    isRunningRef.current = true;
 
-  const stop = () => {
-    setIsTimerRunning(false);
-  };
+    intervalRef.current = setInterval(() => {
+      if (!isRunningRef.current) {
+        clearInterval(intervalRef.current);
+        return;
+      }
+      setTimeLeft(prev => {
+        const next = prev - 1;
+        if (onTickRef.current) onTickRef.current(next);
+        if (next <= 0) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+          isRunningRef.current = false;
+          setTimeout(() => {
+            if (onExpireRef.current) onExpireRef.current();
+          }, 0);
+          return 0;
+        }
+        return next;
+      });
+    }, 1000);
+  }, [initialTime]);
 
-  const addTime = (extra) => {
-    setTimeLeft((prev) => prev + extra);
-  };
+  const addTime = useCallback((extra) => {
+    setTimeLeft(prev => prev + extra);
+  }, []);
 
-  return { timeLeft, isTimerRunning, start, stop, addTime };
+  // Cleanup on unmount
+  useEffect(() => () => {
+    clearInterval(intervalRef.current);
+    isRunningRef.current = false;
+  }, []);
+
+  return { timeLeft, start, stop, addTime };
 }
