@@ -30,13 +30,15 @@ export default function LeaderboardPage() {
     !isHost && roomCode ? `rooms/${roomCode}/status` : null,
     useCallback((status) => {
       if (status === 'playing') {
-        dbGet(`rooms/${roomCode}/currentQ`).then(q => {
-          if (q != null) { setCurrentQ(q); navigate('/player-question'); }
-        });
+        // Just navigate — PlayerQuestionPage's own currentQ listener will
+        // sync the question index from Firebase. Setting currentQ here AND
+        // having PlayerQuestionPage also react to the Firebase currentQ change
+        // caused a double-advance that skipped every second question.
+        navigate('/player-question');
       } else if (status === 'finished') {
         dbGet(`rooms/${roomCode}/players`).then(p => navigate('/final', { state: { players: p } }));
       }
-    }, [roomCode, navigate, setCurrentQ, isHost])
+    }, [roomCode, navigate, isHost])
   );
 
   const handleNext = useCallback(async () => {
