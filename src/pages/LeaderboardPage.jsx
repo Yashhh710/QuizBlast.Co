@@ -55,6 +55,8 @@ export default function LeaderboardPage() {
     const liveQ = await dbGet(`rooms/${roomCode}/currentQ`);
     const nextQ = (liveQ ?? currentQ) + 1;
     if (nextQ >= questions.length) {
+      // Fetch players BEFORE setting status to 'finished' so players also
+      // have time to fetch before any cleanup happens.
       const plist = await dbGet(`rooms/${roomCode}/players`);
       await advanceQuestion(roomCode, nextQ, questions.length);
       navigate('/final', { state: { players: plist } });
