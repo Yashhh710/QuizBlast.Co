@@ -35,17 +35,10 @@ export default function PlayerWaitPage() {
     useCallback((status) => {
       if (status === 'countdown') {
         startCountdown(() => {}, false);
-    } else if (status === 'playing') {
-  dbGet(`rooms/${roomCode}`).then(room => {
-    if (!room) return;
-    setQuestions(room.questions);
-    setTimePerQ(room.timePerQ);
-    setGameMode(room.gameMode || 'classic');
-    const q = room.currentQ || 0;
-    setCurrentQ(q);
-    navigate('/player-question');
-  });
-}
+         } else if (status === 'playing') {
+        dbGet(`rooms/${roomCode}/currentQ`).then(q => {
+          if (q != null) { setCurrentQ(q); navigate('/player-question'); }
+        });
 
       } else if (status === null || status === undefined) {
         resetLocalUI();
