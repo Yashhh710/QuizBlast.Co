@@ -33,6 +33,7 @@ export async function advanceQuestion(roomCode, qIndex, total) {
 // so this is the best we can do without a Cloud Function; the 1200ms poll
 // cadence means the race window is small in practice.
 export async function submitAnswer(roomCode, myId, answerIdx, timeUsed) {
+  console.debug('submitAnswer-called', { who: myId, when: Date.now(), answerIdx, timeUsed });
   // Always fetch fresh counters — never trust caller-supplied stale values
   const room = await dbGet(`rooms/${roomCode}`) || {};
   const currentDist  = room.answerDist  || { 0: 0, 1: 0, 2: 0, 3: 0 };
