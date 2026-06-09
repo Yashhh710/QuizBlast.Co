@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
 import { useTimer } from '../hooks/useTimer';
@@ -16,46 +16,21 @@ export default function HostQuestionPage() {
   const navigate = useNavigate();
   const { roomCode, questions, timePerQ, gameMode, currentQ } = useGame();
 
-  const [answerDist, setAnswerDist] = useState({ 0: 0, 1: 0, 2: 0, 3: 0 });
-  const [answersCount, setAnswersCount] = useState(0);
+  const [answerDist, setAnswerDist]       = useState({ 0: 0, 1: 0, 2: 0, 3: 0 });
+  const [answersCount, setAnswersCount]   = useState(0);
   const [revealedCorrect, setRevealedCorrect] = useState(null);
   const [isQuestionEnded, setIsQuestionEnded] = useState(false);
-
-  // scoredRef prevents double-scoring if timer expires AND host clicks Next simultaneously
   const scoredRef = useRef(false);
 
   const q = questions[currentQ];
 
-  // ── Core advance logic — in a ref so onExpire (and other callbacks) can
-  //    call it without ever capturing a stale closure.
-  const advanceRef = useRef(null);
-
-  const handleNext = useCallback(async () => {
-    if (scoredRef.current) return;
-    scoredRef.current = true;
-    stop(); // stop() is stable (useCallback in useTimer)
-    dbStopListen(`rooms/${roomCode}/answersCount`);
-    dbStopListen(`rooms/${roomCode}/answerDist`);
-    const room = await dbGet(`rooms/${roomCode}`) || {};
-    const subs = room.submittedAnswers || {};
-    const players = room.players || {};
-    // q is captured at call time — use the ref version to avoid stale closure
-    const currentQuestion = advanceRef.current?.q;
-    await scoreAndAdvance(roomCode, players, subs, currentQuestion, timePerQ, gameMode);
-    navigate('/leaderboard');
-  }, [roomCode, timePerQ, gameMode, navigate]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Keep advanceRef in sync with latest values every render
-  advanceRef.current = { q, handleNext };
-
-  // ── Timer — onExpire now auto-advances to leaderboard ──────────────────────
+  // ── Timer ─────────────────────────────────────────────────────────────────
   const { timeLeft, start, stop } = useTimer(
     timePerQ,
     (t) => { if (t <= 5 && t > 0) soundTick(); },
     () => {
-      // Time reached 0 — score and go to leaderboard automatically
+      // Time reached 0 — just show the "Next Question" button, host clicks manually
       setIsQuestionEnded(true);
-      advanceRef.current?.handleNext();
     }
   );
 
@@ -72,7 +47,7 @@ export default function HostQuestionPage() {
     start(timePerQ);
   }, [currentQ]); // eslint-disable-line
 
-  // ── All players answered → stop timer and auto-advance ───────────────────
+  // ── All players answered → stop timer, show Next button ──────────────────
   useFirebaseListener(
     roomCode ? `rooms/${roomCode}/answersCount` : null,
     async (c) => {
@@ -83,8 +58,6 @@ export default function HostQuestionPage() {
         if (pCount > 0 && c >= pCount) {
           stop();
           setIsQuestionEnded(true);
-          // All players answered — advance immediately
-          advanceRef.current?.handleNext();
         }
       }
     }
@@ -107,11 +80,24 @@ export default function HostQuestionPage() {
     }
   );
 
-  // ── Skip timer early → advance now ───────────────────────────────────────
+  // ── Host clicks Next Question → score and go to leaderboard ──────────────
+  const handleNext = async () => {
+    if (scoredRef.current) return;
+    scoredRef.current = true;
+    stop();
+    dbStopListen(`rooms/${roomCode}/answersCount`);
+    dbStopListen(`rooms/${roomCode}/answerDist`);
+    const room = await dbGet(`rooms/${roomCode}`) || {};
+    const subs = room.submittedAnswers || {};
+    const players = room.players || {};
+    await scoreAndAdvance(roomCode, players, subs, q, timePerQ, gameMode);
+    navigate('/leaderboard');
+  };
+
+  // ── Skip timer early → show Next button, stay on question ────────────────
   const handleSkip = () => {
     stop();
     setIsQuestionEnded(true);
-    advanceRef.current?.handleNext();
   };
 
   const handleToggleAnswer = () => {
@@ -159,7 +145,7 @@ export default function HostQuestionPage() {
               ⏩ Skip Timer
             </button>
           ) : (
-            <button className="btn btn-green btn-sm" onClick={() => advanceRef.current?.handleNext()} style={{ flex: 1, padding: '12px' }}>
+            <button className="btn btn-green btn-sm" onClick={handleNext} style={{ flex: 1, padding: '12px' }}>
               ➡️ Next Question
             </button>
           )}
