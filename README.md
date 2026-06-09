@@ -1,6 +1,6 @@
 # QuizBlast - Multiplayer Quiz Game
 
-live demo -
+live demo - https://quiz-blast-co.vercel.app/
 
 QuizBlast is a real-time multiplayer quiz game inspired by platforms like Kahoot. Players can join a room, answer questions, compete live, and view rankings instantly.
 
