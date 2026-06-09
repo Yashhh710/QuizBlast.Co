@@ -68,6 +68,7 @@ export default function JoinTab() {
           maxLength={4}
           value={code}
           onChange={e => setCode(e.target.value.replace(/\D/g, ''))}
+          style={{ fontSize: '16px' }}
         />
       </div>
       <div className="field">
@@ -78,6 +79,7 @@ export default function JoinTab() {
           maxLength={20}
           value={name}
           onChange={e => setName(e.target.value)}
+          style={{ fontSize: '16px' }}
         />
       </div>
       <AvatarPicker selected={avatar} onSelect={setAvatar} />

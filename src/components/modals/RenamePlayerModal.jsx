@@ -18,6 +18,7 @@ export default function RenamePlayerModal({ show, playerName, onConfirm, onClose
           onChange={e => setValue(e.target.value)}
           placeholder="New name…"
           maxLength={20}
+          style={{ fontSize: '16px' }}
         />
       </div>
       <div style={{ display: 'flex', gap: '10px', marginTop: '14px' }}>

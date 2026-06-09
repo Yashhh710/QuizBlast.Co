@@ -73,7 +73,7 @@ export default function PlayerWaitPage() {
   return (
     <div className="screen screen-player-wait" style={{ minHeight: '100vh', justifyContent: 'center' }}>
       {counting && <CountdownOverlay num={countNum} />}
-      <div style={{ textAlign: 'center', padding: '60px 24px 40px', flex: 1, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ textAlign: 'center', padding: '40px 20px 32px', flex: 1, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', overflowX: 'hidden' }}>
         <div style={{ fontSize: '4.5rem', marginBottom: '8px', animation: 'floatBounce .9s infinite alternate' }}>{myAvatar}</div>
         <h2 className="title" style={{ fontSize: '2.2rem', color: '#FFC836', marginBottom: '4px' }}>You're in! 🎉</h2>
         <p style={{ color: 'rgba(255,255,255,.65)', marginBottom: '20px' }}>Waiting for host to start…</p>

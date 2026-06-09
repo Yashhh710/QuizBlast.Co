@@ -233,33 +233,115 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--purple)
 .divider { width: 100%; height: 1px; background: rgba(255,255,255,.1); margin: 12px 0; }
 .badge { display: inline-block; padding: 4px 12px; border-radius: 50px; font-size: .75rem; font-weight: 800; background: rgba(255,255,255,.15); color: #fff; }
 
+/* ─── PREVENT AUTO-ZOOM ON INPUTS (iOS/Android) ────────────────────────────── */
+/* Font size 16px+ prevents iOS from zooming in on input focus */
+input, select, textarea {
+  font-size: 16px !important;
+}
+/* Override only for pin input which needs large display size via CSS transform trick */
+.pin-input {
+  font-size: 16px !important;
+  transform-origin: left center;
+}
+
 /* ─── RESPONSIVE ────────────────────────────────────────────────────────────── */
 @media(max-width:600px) {
-  .answers-grid { grid-template-columns: 1fr; gap: 10px; }
-  .ans-btn { min-height: 64px; padding: 16px 16px 16px 64px; }
-  .room-code { font-size: 3.5rem; letter-spacing: 10px; }
-  .question-text { font-size: 1.1rem; }
-  .host-controls { flex-direction: column; }
-  .host-controls .btn { width: 100%; }
-  .q-topbar { flex-wrap: wrap; align-items: flex-start; gap: 12px; }
-  .q-topbar > div, .q-topbar > span { flex: 1 1 100%; }
-  .q-topbar .answers-answered { width: 100%; justify-content: center; }
-  .powerup-bar { flex-wrap: wrap; gap: 8px; }
-  .reactions-bar { padding: 12px 10px 16px; }
-  .question-area { padding: 16px 14px 10px; }
-  .question-card { padding: 22px 20px; }
-  .ans-btn { padding: 16px 16px 16px 56px; }
-  .q-layout { min-height: auto; }
-  .screen-player-wait div[style] { padding: 48px 18px 32px; }
-  .player-chip { flex: 1 1 45%; justify-content: center; }
-  .host-controls { padding: 12px 10px 16px; }
-  .host-controls .btn { padding: 12px; }
-  .powerup-btn { min-width: 0; flex: 1; }
+  /* ── Global ── */
+  html { -webkit-text-size-adjust: 100%; }
+  body { overflow-x: hidden; }
   .title { word-break: break-word; }
   .badge { font-size: .75rem; }
-  .ans-bar-row { flex-wrap: wrap; }
-  .ans-bar-label { width: auto; }
+
+  /* ── Home screen ── */
+  .screen-home { overflow-y: auto; overflow-x: hidden; }
+  .home-hero { padding: 20px 16px 16px; }
+  .home-body { padding: 0 16px 32px; max-width: 100%; }
+  .logo { font-size: 1.9rem; }
+  .mode-tabs { margin-bottom: 18px; }
+  .pin-input { letter-spacing: 8px; }
+  .avatar-grid { gap: 6px; }
+  .avatar-btn { width: 40px; height: 40px; font-size: 1.25rem; }
+
+  /* ── Lobby ── */
+  .room-code { font-size: 3rem; letter-spacing: 8px; }
+  .lobby-top { padding: 28px 16px 20px; }
+  .lobby-players { padding: 0 16px 32px; }
+  .player-chip { flex: 1 1 45%; justify-content: center; }
+
+  /* ── Question layout ── */
+  .q-layout { min-height: 100dvh; display: flex; flex-direction: column; }
+  .q-topbar {
+    padding: 10px 12px;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 8px;
+  }
+  .q-counter-badge { font-size: .78rem; padding: 5px 10px; white-space: nowrap; }
+  .q-progress-wrap { flex: 1; min-width: 0; }
+  .answers-answered { font-size: .75rem; padding: 5px 10px; white-space: nowrap; }
+
+  /* ── Question card ── */
+  .question-area { padding: 12px 12px 8px; }
+  .question-card { padding: 18px 16px; border-radius: 16px; }
+  .question-text { font-size: 1rem; line-height: 1.45; }
+
+  /* ── Answer grid ── */
+  .answers-area { padding: 8px 12px; flex: 1; }
+  .answers-grid { grid-template-columns: 1fr; gap: 8px; }
+  .ans-btn {
+    min-height: 60px;
+    padding: 14px 14px 14px 56px;
+    font-size: .9rem;
+    border-radius: 14px;
+  }
+  .ans-shape { left: 10px; width: 36px; height: 36px; font-size: 1.1rem; }
+
+  /* ── Reactions & Power-ups ── */
+  .reactions-bar { padding: 8px 10px 10px; gap: 6px; }
+  .reaction-btn { padding: 6px 10px; font-size: 1rem; }
+  .powerup-bar { flex-wrap: wrap; gap: 6px; padding: 0 12px 8px; }
+  .powerup-btn { min-width: 0; flex: 1; padding: 8px 10px; font-size: .68rem; }
+  .pu-icon { font-size: 1.2rem; }
+
+  /* ── Host controls ── */
+  .host-controls { flex-direction: column; gap: 8px; padding: 8px 12px 14px; }
+  .host-controls .btn { width: 100%; padding: 12px; }
+  .ans-bar-row { flex-wrap: nowrap; }
+  .ans-bar-label { width: 24px; font-size: .75rem; }
+  .host-opt-text { font-size: .78rem; }
+
+  /* ── Leaderboard ── */
+  .lb-header { padding: 24px 16px 14px; }
+  .lb-body { padding: 0 16px 32px; }
+  .score-row { padding: 12px 14px; }
+
+  /* ── Final screen ── */
+  .final-wrap { padding: 20px 16px 32px; }
+  .winner-banner { padding: 20px 16px; }
+  .podium-block { width: 72px; }
+  .podium-name { max-width: 72px; font-size: .72rem; }
+  .stat-chips { gap: 8px; }
+  .stat-chip { min-width: 68px; padding: 10px 12px; }
+  .stat-chip-val { font-size: 1.25rem; }
+
+  /* ── Answer result overlay ── */
+  .ans-result-overlay { padding: 20px 16px; }
+  .result-icon { font-size: 4.5rem; }
+  .result-title { font-size: 2rem; }
+  .result-pts { font-size: 1.25rem; padding: 10px 24px; }
+  .correct-reveal { font-size: .9rem; padding: 12px 18px; }
+
+  /* ── Countdown burst ── */
+  .burst-num { font-size: 7rem; }
+
+  /* ── Player wait ── */
+  .screen-player-wait { overflow-x: hidden; }
+
+  /* ── Modals ── */
+  .modal-overlay { padding: 16px; }
+  .modal-box { padding: 22px 18px; }
 }
+
 @media(min-width:900px) {
   .ans-btn { font-size: 1.15rem; min-height: 96px; }
   .question-text { font-size: 1.45rem; }

@@ -4,7 +4,7 @@ const Input = memo(function Input({ label, error, className = '', inputClassName
   return (
     <div className={`field ${className}`}>
       {label && <label>{label}</label>}
-      <input className={inputClassName} {...props} />
+      <input className={inputClassName} style={{ fontSize: '16px', ...props.style }} {...props} />
       {error && <div className="err">{error}</div>}
     </div>
   );

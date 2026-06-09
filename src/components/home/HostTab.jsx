@@ -69,6 +69,7 @@ export default function HostTab() {
               value={topic}
               onChange={e => setTopic(e.target.value)}
               placeholder="e.g. Bollywood, Cricket, Science…"
+              style={{ fontSize: '16px' }}
             />
           </div>
           <div className="field">
@@ -100,6 +101,7 @@ export default function HostTab() {
               value={manualTitle}
               onChange={e => setManualTitle(e.target.value)}
               placeholder="My Awesome Quiz"
+              style={{ fontSize: '16px' }}
             />
           </div>
           <ManualQEditor questions={manualQs} onChange={setManualQs} />

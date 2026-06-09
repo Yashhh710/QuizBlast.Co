@@ -46,7 +46,7 @@ function ManualQEditor({ questions, onChange }) {
                 placeholder="Type your question…"
                 value={q.question}
                 onChange={e => updateQ(q.id, 'question', e.target.value)}
-                style={{ background: 'rgba(0,0,0,.2)', borderColor: 'rgba(255,255,255,.15)', color: '#fff' }}
+                style={{ background: 'rgba(0,0,0,.2)', borderColor: 'rgba(255,255,255,.15)', color: '#fff', fontSize: '16px' }}
               />
             </div>
             <div className="ans-inputs">
@@ -58,7 +58,7 @@ function ManualQEditor({ questions, onChange }) {
                     placeholder={`Option ${['A','B','C','D'][i]}`}
                     value={q.answers[i]}
                     onChange={e => updateAnswer(q.id, i, e.target.value)}
-                    style={{ background: 'rgba(0,0,0,.2)', borderColor: 'rgba(255,255,255,.15)' }}
+                    style={{ background: 'rgba(0,0,0,.2)', borderColor: 'rgba(255,255,255,.15)', fontSize: '16px' }}
                   />
                 </div>
               ))}
