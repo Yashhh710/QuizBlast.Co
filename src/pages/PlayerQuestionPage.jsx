@@ -145,9 +145,23 @@ export default function PlayerQuestionPage() {
   // Completely isolated from the host timer. Submitting an answer writes to
   // Firebase (answersCount, answerDist, submittedAnswers) — the host reads
   // those values on its own schedule. Nothing here touches the host timer.
-  const handleSelectAnswer = async (idx) => {
+  const handleSelectAnswer = async (idx, e) => {
     const s = state.current;
-    if (s.answered || selectedAnswer !== null) return;
+
+    // Reject if already answered locally
+    const hasAnswered = s.answered || selectedAnswer !== null;
+    if (hasAnswered) {
+      console.debug('submit-blocked', { who: s.myId, when: Date.now(), reason: 'already-answered', idx });
+      return;
+    }
+
+    // Require a real user interaction: only accept genuine trusted browser events
+    const fromUser = !!(e && e.isTrusted);
+    if (!fromUser) {
+      console.debug('submit-blocked', { who: s.myId, when: Date.now(), reason: 'not-user-event', idx, event: !!e });
+      return;
+    }
+
     s.answered = true;
 
     setSelectedAnswer(idx);
@@ -178,6 +192,10 @@ export default function PlayerQuestionPage() {
 
     // Read fresh room data to get current answerDist/answersCount
     const room = await dbGet(s.roomCode) || {};
+
+    // Debug log: who, when, source
+    console.debug('submit-attempt', { who: s.myId, when: Date.now(), source: 'user-click', idx, timeUsed });
+
     await submitAnswer(s.roomCode, s.myId, idx, timeUsed, room.answerDist, room.answersCount || 0);
 
     setResultInfo({
