@@ -54,27 +54,33 @@ export default function PlayerQuestionPage() {
   const q = questions[currentQ];
 
   // ── Player-side timer ─────────────────────────────────────────────────────
-  // The player has their OWN visual timer for UX — it does NOT control the
-  // host or question progression. When it expires, the player just submits
-  // a null answer (time-out) so they don't miss scoring. The actual question
-  // end is driven by the HOST timer via Firebase status changes.
+  // Visual-only countdown. It does NOT submit anything and does NOT drive
+  // question progression — that is 100% the host's job via Firebase status.
+  // When it hits 0 we just lock the buttons locally and show "Time's Up!".
+  // Players who haven't answered simply receive 0 pts when the host scores.
   const { timeLeft, start, stop, addTime } = useTimer(
     timePerQ,
     (t) => {
       state.current.timeLeft = t;
       if (t <= 5 && t > 0) soundTick();
     },
-    async () => {
-      // Player's local timer expired — submit a timeout answer if not already answered
+    () => {
+      // Timer expired — lock UI locally, no Firebase write
       const s = state.current;
       if (s.answered) return;
       s.answered = true;
       setDisabled(true);
       setMyStreak(0);
       setMyWrong(prev => prev + 1);
-      await submitAnswer(s.roomCode, s.myId, null, s.timePerQ, null, 0);
-      const qi = s.q;
-      setResultInfo({ isCorrect: false, idx: null, question: qi, pts: 0, streak: 0, isTimeout: true, isSkipped: false });
+      setResultInfo({
+        isCorrect: false,
+        idx:       null,
+        question:  s.q,
+        pts:       0,
+        streak:    0,
+        isTimeout: true,
+        isSkipped: false,
+      });
       soundWrong();
       speakText("Time's Up!", false);
     }
