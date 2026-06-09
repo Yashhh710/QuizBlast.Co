@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
 import { usePlayer } from '../context/PlayerContext';
 import { deleteRoom } from '../services/gameService';
-import { dbStopAll } from '../services/firebase';
+import { dbStopAll, dbGet } from '../services/firebase';
 import { soundWinner } from '../utils/sounds';
 import { speakText } from '../utils/helpers';
 import Podium from '../components/leaderboard/Podium';
@@ -19,19 +19,28 @@ export default function FinalPage() {
   const [sorted, setSorted] = useState([]);
 
   useEffect(() => {
-    const raw = location.state?.players;
-    if (raw) {
-      setPlayers(raw);
-      const list = Object.values(raw).sort((a, b) => b.score - a.score);
-      setSorted(list);
-      soundWinner();
-      if (list.length > 0) {
-        speakText(`Game Over! ${list[0].name} wins!`, false);
+    async function loadPlayers() {
+      // Try location state first, then fall back to Firebase fetch
+      let raw = location.state?.players;
+      if (!raw && roomCode) {
+        raw = await dbGet(`rooms/${roomCode}/players`);
+      }
+      if (raw) {
+        setPlayers(raw);
+        const list = Object.values(raw).sort((a, b) => b.score - a.score);
+        setSorted(list);
+        soundWinner();
+        if (list.length > 0) {
+          speakText(`Game Over! ${list[0].name} wins!`, false);
+        }
       }
     }
+    loadPlayers();
   }, []); // eslint-disable-line
 
   const handleReset = useCallback(async () => {
+    // Small delay so players can finish fetching room data before deletion
+    await new Promise(res => setTimeout(res, 2000));
     if (roomCode) await deleteRoom(roomCode);
     dbStopAll();
     reset();
@@ -39,8 +48,8 @@ export default function FinalPage() {
     navigate('/');
   }, [roomCode, reset, resetPlayer, navigate]);
 
-  // For non-host players: go back to home without deleting the room
   const handleBackHome = useCallback(() => {
+    dbStopAll();
     reset();
     resetPlayer();
     navigate('/');
@@ -57,7 +66,7 @@ export default function FinalPage() {
             Game Over!
           </h2>
           <p className="title" style={{ fontSize: '1rem', color: 'rgba(255,255,255,.9)' }}>
-            {sorted.length > 0 ? `👑 ${sorted[0].name} wins with ${sorted[0].score} pts!` : 'No players.'}
+            {sorted.length > 0 ? `👑 ${sorted[0].name} wins with ${sorted[0].score} pts!` : 'Loading results…'}
           </p>
         </div>
 
