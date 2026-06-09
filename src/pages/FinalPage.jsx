@@ -39,6 +39,13 @@ export default function FinalPage() {
     navigate('/');
   }, [roomCode, reset, resetPlayer, navigate]);
 
+  // For non-host players: go back to home without deleting the room
+  const handleBackHome = useCallback(() => {
+    reset();
+    resetPlayer();
+    navigate('/');
+  }, [reset, resetPlayer, navigate]);
+
   const acc = questions.length > 0 ? Math.round((myCorrect / questions.length) * 100) : 0;
 
   return (
@@ -89,9 +96,18 @@ export default function FinalPage() {
             🔄 Host New Quiz
           </button>
         ) : (
-          <p style={{ color: 'rgba(255,255,255,.5)', fontSize: '.85rem', marginTop: '12px', textAlign: 'center' }}>
-            Waiting for Host to reset…
-          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', marginTop: '8px' }}>
+            <button
+              className="btn btn-yellow btn-lg"
+              onClick={handleBackHome}
+              style={{ width: '100%', maxWidth: '320px' }}
+            >
+              🏠 Back to Home
+            </button>
+            <p style={{ color: 'rgba(255,255,255,.45)', fontSize: '.8rem', textAlign: 'center', margin: 0 }}>
+              or wait for the host to start a new game
+            </p>
+          </div>
         )}
       </div>
     </div>
