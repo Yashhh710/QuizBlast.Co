@@ -5,6 +5,7 @@ import { useTimer } from '../hooks/useTimer';
 import { useFirebaseListener } from '../hooks/useFirebase';
 import { dbGet, dbSet, dbStopListen, dbUpdate } from '../services/firebase';
 import { scoreAndAdvance } from '../services/gameService';
+import { simulateBotAnswer } from '../utils/botPlayer';
 import { soundTick } from '../utils/sounds';
 import { spawnFloating } from '../utils/animations';
 import Timer from '../components/common/Timer';
@@ -21,62 +22,43 @@ export default function HostQuestionPage() {
   const [revealedCorrect, setRevealedCorrect] = useState(null);
   const [isQuestionEnded, setIsQuestionEnded] = useState(false);
 
-  // scoredRef: guarantees scoreAndAdvance fires EXACTLY ONCE per question,
-  // regardless of whether the timer expired OR all players answered first.
   const scoredRef = useRef(false);
+  const botCancelRef = useRef(null); // cancel pending bot timeout
 
-  // Keep a stable ref to the current question so async callbacks never
-  // capture a stale closure value.
   const qRef = useRef(questions[currentQ]);
   qRef.current = questions[currentQ];
 
   const q = questions[currentQ];
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // scoreAndShow — the ONE place that ends a question.
-  // Called either when: (a) timer hits 0, OR (b) every player answered.
-  // Protected by scoredRef so it is idempotent.
-  // ─────────────────────────────────────────────────────────────────────────
   const scoreAndShow = useCallback(async () => {
     if (scoredRef.current) return;
     scoredRef.current = true;
 
-    // Stop the timer immediately (no-op if already stopped)
-    stop(); // eslint-disable-line react-hooks/exhaustive-deps
+    // Cancel any pending bot answer (game ended before bot fired)
+    if (botCancelRef.current) { botCancelRef.current(); botCancelRef.current = null; }
 
-    // Stop Firebase polls that are no longer needed
+    stop(); // eslint-disable-line react-hooks/exhaustive-deps
     dbStopListen(`rooms/${roomCode}/answersCount`);
     dbStopListen(`rooms/${roomCode}/answerDist`);
 
-    // Fetch the latest room snapshot — answers submitted up to this moment
     const room    = await dbGet(`rooms/${roomCode}`) || {};
     const subs    = room.submittedAnswers || {};
     const players = room.players || {};
 
-    // Score everyone, update players in Firebase, set status → 'leaderboard'
-    // (This is what players are listening to — they will navigate when they
-    //  see status === 'leaderboard'.)
     await scoreAndAdvance(roomCode, players, subs, qRef.current, timePerQ, gameMode);
-
-    // Host navigates to leaderboard
     navigate('/leaderboard');
-  }, [roomCode, timePerQ, gameMode, navigate]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [roomCode, timePerQ, gameMode, navigate]); // eslint-disable-line
 
-  // ── Timer ─────────────────────────────────────────────────────────────────
-  // onExpire: timer hit 0 → score and show leaderboard automatically.
-  // This fires independently of what players are doing. The host timer is
-  // owned entirely by this component; no participant action can touch it.
   const { timeLeft, start, stop } = useTimer(
     timePerQ,
     (t) => { if (t <= 5 && t > 0) soundTick(); },
     () => {
-      // Timer reached 0 — end the question
       setIsQuestionEnded(true);
       scoreAndShow();
     }
   );
 
-  // ── Reset on new question ─────────────────────────────────────────────────
+  // ── Reset on new question + kick off bot simulation ───────────────────────
   useEffect(() => {
     if (!q) return;
     scoredRef.current = false;
@@ -87,25 +69,27 @@ export default function HostQuestionPage() {
     dbSet(`rooms/${roomCode}/answersCount`, 0);
     dbSet(`rooms/${roomCode}/answerDist`,   { 0: 0, 1: 0, 2: 0, 3: 0 });
     start(timePerQ);
+
+    // If there's a bot, schedule its answer
+    dbGet(`rooms/${roomCode}/players`).then(playersObj => {
+      if (!playersObj) return;
+      const bots = Object.values(playersObj).filter(p => p.isBot);
+      bots.forEach(bot => {
+        const cancel = simulateBotAnswer(roomCode, bot, q, timePerQ, null);
+        botCancelRef.current = cancel;
+      });
+    });
   }, [currentQ]); // eslint-disable-line
 
-  // ── All players answered ──────────────────────────────────────────────────
-  // We update the displayed count every tick, but we only trigger scoreAndShow
-  // once — when the last player submits. The timer keeps running until then
-  // (or until it expires naturally — whichever comes first).
   const handleAnswersCount = useCallback(async (c) => {
     const count = c || 0;
     setAnswersCount(count);
-
     if (count === 0) return;
 
-    // Fetch player count to see if everyone has answered
     const playersObj = await dbGet(`rooms/${roomCode}/players`);
     const pCount = playersObj ? Object.keys(playersObj).length : 0;
 
     if (pCount > 0 && count >= pCount) {
-      // All players answered — end question early (timer keeps running until
-      // scoreAndShow calls stop() inside it, so no visible freeze)
       setIsQuestionEnded(true);
       scoreAndShow();
     }
@@ -127,18 +111,12 @@ export default function HostQuestionPage() {
       if (!data) return;
       Object.values(data).forEach(r => {
         if (Date.now() - r.ts < 3000) {
-          spawnFloating(
-            r.emoji,
-            Math.random() * window.innerWidth * .8 + window.innerWidth * .1,
-            window.innerHeight * .7
-          );
+          spawnFloating(r.emoji, Math.random() * window.innerWidth * .8 + window.innerWidth * .1, window.innerHeight * .7);
         }
       });
     }, [])
   );
 
-  // ── Manual host controls ──────────────────────────────────────────────────
-  // "Skip Timer" — host decides to end the question early without waiting.
   const handleSkip = useCallback(() => {
     setIsQuestionEnded(true);
     scoreAndShow();
@@ -149,6 +127,7 @@ export default function HostQuestionPage() {
   }, [q]);
 
   const handleEndGame = useCallback(async () => {
+    if (botCancelRef.current) { botCancelRef.current(); botCancelRef.current = null; }
     stop();
     await dbUpdate(`rooms/${roomCode}`, { status: 'finished' });
     const plist = await dbGet(`rooms/${roomCode}/players`);
