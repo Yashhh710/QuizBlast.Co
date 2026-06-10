@@ -22,15 +22,14 @@ export default function HostQuestionPage() {
   const [revealedCorrect, setRevealedCorrect] = useState(null);
   const [isQuestionEnded, setIsQuestionEnded] = useState(false);
 
-  const scoredRef    = useRef(false);
-  const botCancels   = useRef([]); // array of cancel fns for ALL bots
-  const botsRef      = useRef([]);  // cached bot list so no async race
+  const scoredRef  = useRef(false);
+  const botCancels = useRef([]);
+  const botsRef    = useRef([]);
 
   const qRef = useRef(questions[currentQ]);
   qRef.current = questions[currentQ];
   const q = questions[currentQ];
 
-  // Cancel all pending bot timeouts
   const cancelAllBots = useCallback(() => {
     botCancels.current.forEach(fn => fn());
     botCancels.current = [];
@@ -66,9 +65,7 @@ export default function HostQuestionPage() {
   useEffect(() => {
     if (!q) return;
 
-    // Cancel any leftover bot timers from previous question
     cancelAllBots();
-
     scoredRef.current = false;
     setAnswerDist({ 0: 0, 1: 0, 2: 0, 3: 0 });
     setAnswersCount(0);
@@ -78,11 +75,8 @@ export default function HostQuestionPage() {
     dbSet(`rooms/${roomCode}/answerDist`,   { 0: 0, 1: 0, 2: 0, 3: 0 });
     start(timePerQ);
 
-    // Schedule bot answers — use already-cached bots if available,
-    // otherwise fetch once and cache so we never re-fetch mid-question.
     const scheduleBots = (bots) => {
       bots.forEach(bot => {
-        // Don't schedule if question already ended (very fast host skip)
         if (scoredRef.current) return;
         const cancel = simulateBotAnswer(roomCode, bot, q, timePerQ, null);
         botCancels.current.push(cancel);
@@ -101,25 +95,11 @@ export default function HostQuestionPage() {
     }
   }, [currentQ]); // eslint-disable-line
 
-  // ── All players answered ──────────────────────────────────────────────────
-  const handleAnswersCount = useCallback(async (c) => {
-    const count = c || 0;
-    setAnswersCount(count);
-    if (count === 0) return;
-
-    const playersObj = await dbGet(`rooms/${roomCode}/players`);
-    // Only count human (non-bot) players for the "all answered" early-end check.
-    // Bots submit on their own timer — we don't want a bot answer to
-    // accidentally trigger an early end before humans have had a chance.
-    const allPlayers  = playersObj ? Object.values(playersObj) : [];
-    const humanCount  = allPlayers.filter(p => !p.isBot).length;
-
-    // End early only when ALL humans have answered
-    if (humanCount > 0 && count >= humanCount) {
-      setIsQuestionEnded(true);
-      scoreAndShow();
-    }
-  }, [roomCode, scoreAndShow]);
+  // ── Answer count — display only, NO auto-skip ─────────────────────────────
+  // Question ends ONLY when: (a) timer hits 0, OR (b) host clicks ⏩ Skip Timer
+  const handleAnswersCount = useCallback((c) => {
+    setAnswersCount(c || 0);
+  }, []);
 
   useFirebaseListener(
     roomCode ? `rooms/${roomCode}/answersCount` : null,
@@ -143,6 +123,7 @@ export default function HostQuestionPage() {
     }, [])
   );
 
+  // Host-only skip
   const handleSkip = useCallback(() => {
     setIsQuestionEnded(true);
     scoreAndShow();
