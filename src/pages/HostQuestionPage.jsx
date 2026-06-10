@@ -22,21 +22,25 @@ export default function HostQuestionPage() {
   const [revealedCorrect, setRevealedCorrect] = useState(null);
   const [isQuestionEnded, setIsQuestionEnded] = useState(false);
 
-  const scoredRef = useRef(false);
-  const botCancelRef = useRef(null); // cancel pending bot timeout
+  const scoredRef    = useRef(false);
+  const botCancels   = useRef([]); // array of cancel fns for ALL bots
+  const botsRef      = useRef([]);  // cached bot list so no async race
 
   const qRef = useRef(questions[currentQ]);
   qRef.current = questions[currentQ];
-
   const q = questions[currentQ];
+
+  // Cancel all pending bot timeouts
+  const cancelAllBots = useCallback(() => {
+    botCancels.current.forEach(fn => fn());
+    botCancels.current = [];
+  }, []);
 
   const scoreAndShow = useCallback(async () => {
     if (scoredRef.current) return;
     scoredRef.current = true;
 
-    // Cancel any pending bot answer (game ended before bot fired)
-    if (botCancelRef.current) { botCancelRef.current(); botCancelRef.current = null; }
-
+    cancelAllBots();
     stop(); // eslint-disable-line react-hooks/exhaustive-deps
     dbStopListen(`rooms/${roomCode}/answersCount`);
     dbStopListen(`rooms/${roomCode}/answerDist`);
@@ -47,7 +51,7 @@ export default function HostQuestionPage() {
 
     await scoreAndAdvance(roomCode, players, subs, qRef.current, timePerQ, gameMode);
     navigate('/leaderboard');
-  }, [roomCode, timePerQ, gameMode, navigate]); // eslint-disable-line
+  }, [roomCode, timePerQ, gameMode, navigate, cancelAllBots]); // eslint-disable-line
 
   const { timeLeft, start, stop } = useTimer(
     timePerQ,
@@ -58,9 +62,13 @@ export default function HostQuestionPage() {
     }
   );
 
-  // ── Reset on new question + kick off bot simulation ───────────────────────
+  // ── Reset on new question ─────────────────────────────────────────────────
   useEffect(() => {
     if (!q) return;
+
+    // Cancel any leftover bot timers from previous question
+    cancelAllBots();
+
     scoredRef.current = false;
     setAnswerDist({ 0: 0, 1: 0, 2: 0, 3: 0 });
     setAnswersCount(0);
@@ -70,17 +78,30 @@ export default function HostQuestionPage() {
     dbSet(`rooms/${roomCode}/answerDist`,   { 0: 0, 1: 0, 2: 0, 3: 0 });
     start(timePerQ);
 
-    // If there's a bot, schedule its answer
-    dbGet(`rooms/${roomCode}/players`).then(playersObj => {
-      if (!playersObj) return;
-      const bots = Object.values(playersObj).filter(p => p.isBot);
+    // Schedule bot answers — use already-cached bots if available,
+    // otherwise fetch once and cache so we never re-fetch mid-question.
+    const scheduleBots = (bots) => {
       bots.forEach(bot => {
+        // Don't schedule if question already ended (very fast host skip)
+        if (scoredRef.current) return;
         const cancel = simulateBotAnswer(roomCode, bot, q, timePerQ, null);
-        botCancelRef.current = cancel;
+        botCancels.current.push(cancel);
       });
-    });
+    };
+
+    if (botsRef.current.length > 0) {
+      scheduleBots(botsRef.current);
+    } else {
+      dbGet(`rooms/${roomCode}/players`).then(playersObj => {
+        if (!playersObj) return;
+        const bots = Object.values(playersObj).filter(p => p.isBot);
+        botsRef.current = bots;
+        scheduleBots(bots);
+      });
+    }
   }, [currentQ]); // eslint-disable-line
 
+  // ── All players answered ──────────────────────────────────────────────────
   const handleAnswersCount = useCallback(async (c) => {
     const count = c || 0;
     setAnswersCount(count);
@@ -127,12 +148,12 @@ export default function HostQuestionPage() {
   }, [q]);
 
   const handleEndGame = useCallback(async () => {
-    if (botCancelRef.current) { botCancelRef.current(); botCancelRef.current = null; }
+    cancelAllBots();
     stop();
     await dbUpdate(`rooms/${roomCode}`, { status: 'finished' });
     const plist = await dbGet(`rooms/${roomCode}/players`);
     navigate('/final', { state: { players: plist } });
-  }, [roomCode, stop, navigate]);
+  }, [roomCode, stop, navigate, cancelAllBots]);
 
   if (!q || !roomCode) { navigate('/'); return null; }
 
