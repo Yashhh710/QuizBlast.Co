@@ -108,9 +108,14 @@ export default function HostQuestionPage() {
     if (count === 0) return;
 
     const playersObj = await dbGet(`rooms/${roomCode}/players`);
-    const pCount = playersObj ? Object.keys(playersObj).length : 0;
+    // Only count human (non-bot) players for the "all answered" early-end check.
+    // Bots submit on their own timer — we don't want a bot answer to
+    // accidentally trigger an early end before humans have had a chance.
+    const allPlayers  = playersObj ? Object.values(playersObj) : [];
+    const humanCount  = allPlayers.filter(p => !p.isBot).length;
 
-    if (pCount > 0 && count >= pCount) {
+    // End early only when ALL humans have answered
+    if (humanCount > 0 && count >= humanCount) {
       setIsQuestionEnded(true);
       scoreAndShow();
     }
