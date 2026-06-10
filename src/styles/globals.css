@@ -115,11 +115,11 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--purple)
 .answers-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%; max-width: 780px; margin: 0 auto; }
 .ans-btn {
   position: relative; border: none; border-radius: 16px;
-  padding: 20px 18px 20px 72px;
+  padding: 20px 18px;
   font-family: var(--font-d); font-size: 1rem; font-weight: 800;
   cursor: pointer; transition: transform .15s, box-shadow .15s, opacity .2s;
-  text-align: left; color: #fff; min-height: 80px;
-  display: flex; align-items: center;
+  text-align: center; color: #fff; min-height: 80px;
+  display: flex; align-items: center; justify-content: center;
   box-shadow: 0 6px 0 rgba(0,0,0,.25), 0 8px 20px rgba(0,0,0,.15);
 }
 .ans-btn:hover:not(:disabled) { transform: translateY(-3px); box-shadow: 0 9px 0 rgba(0,0,0,.25), 0 12px 28px rgba(0,0,0,.2); }
@@ -131,7 +131,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--purple)
 .ans-btn:nth-child(2) { background: #E21B3C; }
 .ans-btn:nth-child(3) { background: #FFA602; }
 .ans-btn:nth-child(4) { background: #26890C; }
-.ans-shape { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; background: rgba(0,0,0,.2); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; flex-shrink: 0; }
+.ans-shape { display: none; }
 .ans-text { flex: 1; }
 /* Reactions */
 .reactions-bar { display: flex; gap: 10px; justify-content: center; padding: 10px 16px 14px; max-width: 780px; margin: 0 auto; width: 100%; }
@@ -296,7 +296,7 @@ input, select, textarea {
     font-size: .9rem;
     border-radius: 14px;
   }
-  .ans-shape { left: 10px; width: 36px; height: 36px; font-size: 1.1rem; }
+  .ans-shape { display: none; }
 
   /* ── Reactions & Power-ups ── */
   .reactions-bar { padding: 8px 10px 10px; gap: 6px; }
