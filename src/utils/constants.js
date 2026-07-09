@@ -1,4 +1,4 @@
-export const FB_URL = 'https://quiz-8016d-default-rtdb.asia-southeast1.firebasedatabase.app';
+export const FB_URL = import.meta.env.VITE_FIREBASE_DB_URL;
 
 export const AVATARS = ['🦁','🐯','🐸','🐼','🦊','🐻','🐮','🐷','🐙','🦄','🐉','🦅','🐬','🦋','🐺','🦝'];
 export const COLORS = ['#1368CE','#E21B3C','#FFA602','#26890C','#9B59B6','#EC4899','#14B8A6','#F97316'];
